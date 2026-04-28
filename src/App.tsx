@@ -8,15 +8,17 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, 
   Eye, 
-  ArrowUpCircle, 
-  Music as MusicIcon, 
   Circle, 
   Bird, 
   Cloud, 
   Ship, 
   Waves,
   Sun,
-  LayoutGrid
+  LayoutGrid,
+  Music as MusicIcon,
+  Heart,
+  Star,
+  Square
 } from 'lucide-react';
 
 // --- Types ---
@@ -194,57 +196,81 @@ const PeekABooGame = () => {
 
 const SortingGame = () => {
   const [items, setItems] = useState([
-    { id: 1, type: 'sky', icon: <Bird size={64} />, color: 'text-white' },
-    { id: 2, type: 'water', icon: <Ship size={64} />, color: 'text-amber-200' },
-    { id: 3, type: 'sky', icon: <Cloud size={64} />, color: 'text-sky-100' },
-    { id: 4, type: 'water', icon: <Waves size={64} />, color: 'text-blue-200' },
+    { id: 1, type: 'cookie', icon: '🍪', color: 'text-amber-600' },
+    { id: 2, type: 'apple', icon: '🍎', color: 'text-red-500' },
+    { id: 3, type: 'banana', icon: '🍌', color: 'text-yellow-400' },
+    { id: 4, type: 'grape', icon: '🍇', color: 'text-purple-500' },
   ]);
+  const [isEating, setIsEating] = useState(false);
+  const mouthRef = useRef<HTMLDivElement>(null);
 
-  const handleDragEnd = (id: number, info: any, targetType: string) => {
-    const item = items.find(i => i.id === id);
-    if (!item) return;
+  const handleDragEnd = (id: number, info: any) => {
+    if (!mouthRef.current) return;
+    
+    const mouthRect = mouthRef.current.getBoundingClientRect();
+    const { x, y } = info.point;
 
-    // Very broad collision detection for toddler fingers
-    const y = info.point.y;
-    const height = window.innerHeight;
-    const isInSky = y < height / 2;
-    const isInWater = y >= height / 2;
-
-    if ((item.type === 'sky' && isInSky) || (item.type === 'water' && isInWater)) {
-      audio.playTone(880, 'sine', 0.1);
+    // Check if the drop point is inside the mouth area
+    if (
+      x > mouthRect.left && 
+      x < mouthRect.right && 
+      y > mouthRect.top && 
+      y < mouthRect.bottom
+    ) {
+      // Success! Feed the monster
+      audio.playTone(300, 'triangle', 0.2); // Chomp sound
       audio.vibrate();
-      // Remove or reset item
-      setItems(prev => prev.filter(i => i.id !== id).concat({ ...item, id: Date.now() }));
+      setIsEating(true);
+      
+      // Remove eaten item and add a new one later
+      setItems(prev => {
+        const item = prev.find(i => i.id === id);
+        const filtered = prev.filter(i => i.id !== id);
+        return [...filtered, { ...item!, id: Date.now() }];
+      });
+
+      setTimeout(() => setIsEating(false), 500);
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex-1 bg-sky-400 flex items-center justify-center relative">
-        <Sun className="absolute top-8 left-8 text-yellow-300 animate-pulse" size={80} />
-        <span className="text-sky-100 text-4xl font-bold uppercase opacity-30">Sky</span>
+    <div className="w-full h-full bg-emerald-100 flex flex-col items-center justify-between py-12 relative overflow-hidden">
+      <div className="text-center">
+        <h2 className="text-4xl font-black text-emerald-800 opacity-40 uppercase tracking-widest">Feed Me!</h2>
       </div>
-      <div className="flex-1 bg-blue-600 flex items-center justify-center">
-        <Waves className="absolute bottom-8 right-8 text-blue-400 opacity-50" size={100} />
-        <span className="text-white text-4xl font-bold uppercase opacity-30">Water</span>
-      </div>
-      
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="w-full max-w-lg flex justify-around pointer-events-auto h-48">
-          {items.slice(0, 4).map((item, idx) => (
-            <motion.div
-              key={item.id}
-              drag
-              dragSnapToOrigin
-              onDragEnd={(_, info) => handleDragEnd(item.id, info, item.type)}
-              className={`p-8 bg-white/20 backdrop-blur-md rounded-3xl cursor-grab active:cursor-grabbing h-fit`}
-              style={{ x: (idx - 1.5) * 40 }}
-            >
-              <div className={item.color}>{item.icon}</div>
-            </motion.div>
-          ))}
+
+      {/* The Monster */}
+      <motion.div 
+        ref={mouthRef}
+        animate={isEating ? { scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] } : { y: [0, -10, 0] }}
+        transition={isEating ? { duration: 0.3 } : { repeat: Infinity, duration: 2, ease: "easeInOut" }}
+        className="relative z-10"
+      >
+        <div className="text-[12rem] leading-none mb-[-2rem]">
+          {isEating ? '😲' : '😋'}
         </div>
+        <div className="w-64 h-24 bg-emerald-900/10 rounded-full blur-xl mx-auto" />
+      </motion.div>
+
+      {/* The Items (Food) */}
+      <div className="w-full flex justify-around px-4 z-20">
+        {items.slice(0, 3).map((item) => (
+          <motion.div
+            key={item.id}
+            drag
+            dragSnapToOrigin
+            onDragEnd={(_, info) => handleDragEnd(item.id, info)}
+            whileTap={{ scale: 1.4, zIndex: 50 }}
+            className="text-8xl cursor-grab active:cursor-grabbing p-6 bg-white/40 backdrop-blur-sm rounded-3xl shadow-lg border-4 border-white/50"
+          >
+            {item.icon}
+          </motion.div>
+        ))}
       </div>
+
+      {/* Visual background elements */}
+      <div className="absolute top-10 left-10 text-emerald-200 -rotate-12"><LayoutGrid size={120} /></div>
+      <div className="absolute bottom-40 right-10 text-emerald-200 rotate-12"><Circle size={80} /></div>
     </div>
   );
 };
